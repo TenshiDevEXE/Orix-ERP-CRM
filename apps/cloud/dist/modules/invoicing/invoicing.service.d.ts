@@ -1,0 +1,111 @@
+import { PrismaService } from '../../prisma/prisma.service';
+export declare class InvoicingService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    findInvoices(): Promise<({
+        company: {
+            id: string;
+            tenantId: string;
+            email: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            rnc: string;
+            tradeName: string | null;
+            address: string | null;
+            phone: string | null;
+            itbisType: string;
+            ncfSequenceType: string;
+            accountingPeriodStart: Date;
+            settings: import("@prisma/client/runtime/library").JsonValue;
+        };
+        lines: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            itbisAmount: import("@prisma/client/runtime/library").Decimal;
+            invoiceId: string;
+            productId: string | null;
+            quantity: import("@prisma/client/runtime/library").Decimal;
+            unitPrice: import("@prisma/client/runtime/library").Decimal;
+            discount: import("@prisma/client/runtime/library").Decimal;
+            itbisRate: import("@prisma/client/runtime/library").Decimal;
+            lineTotal: import("@prisma/client/runtime/library").Decimal;
+            lineNumber: number;
+        }[];
+    } & {
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        customerId: string;
+        invoiceNumber: string;
+        ncf: string;
+        ncfType: string;
+        invoiceDate: Date;
+        dueDate: Date | null;
+        subtotal: import("@prisma/client/runtime/library").Decimal;
+        itbisAmount: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
+        journalEntryId: string | null;
+        idempotencyKey: string;
+        createdBy: string;
+    })[]>;
+    createInvoice(data: any): Promise<{
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        customerId: string;
+        invoiceNumber: string;
+        ncf: string;
+        ncfType: string;
+        invoiceDate: Date;
+        dueDate: Date | null;
+        subtotal: import("@prisma/client/runtime/library").Decimal;
+        itbisAmount: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
+        journalEntryId: string | null;
+        idempotencyKey: string;
+        createdBy: string;
+    }>;
+    updateInvoiceStatus(id: string, status: string): Promise<{
+        lines: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            itbisAmount: import("@prisma/client/runtime/library").Decimal;
+            invoiceId: string;
+            productId: string | null;
+            quantity: import("@prisma/client/runtime/library").Decimal;
+            unitPrice: import("@prisma/client/runtime/library").Decimal;
+            discount: import("@prisma/client/runtime/library").Decimal;
+            itbisRate: import("@prisma/client/runtime/library").Decimal;
+            lineTotal: import("@prisma/client/runtime/library").Decimal;
+            lineNumber: number;
+        }[];
+    } & {
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        customerId: string;
+        invoiceNumber: string;
+        ncf: string;
+        ncfType: string;
+        invoiceDate: Date;
+        dueDate: Date | null;
+        subtotal: import("@prisma/client/runtime/library").Decimal;
+        itbisAmount: import("@prisma/client/runtime/library").Decimal;
+        total: import("@prisma/client/runtime/library").Decimal;
+        journalEntryId: string | null;
+        idempotencyKey: string;
+        createdBy: string;
+    }>;
+}

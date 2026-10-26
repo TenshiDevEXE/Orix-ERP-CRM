@@ -1,0 +1,130 @@
+import { PrismaService } from '../../prisma/prisma.service';
+export declare class AccountingService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    findAccounts(): Promise<{
+        id: string;
+        tenantId: string;
+        companyId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        parentId: string | null;
+        code: string;
+        isActive: boolean;
+        type: string;
+        subtype: string | null;
+        balance: import("@prisma/client/runtime/library").Decimal;
+    }[]>;
+    createAccount(data: any): Promise<{
+        id: string;
+        tenantId: string;
+        companyId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        parentId: string | null;
+        code: string;
+        isActive: boolean;
+        type: string;
+        subtype: string | null;
+        balance: import("@prisma/client/runtime/library").Decimal;
+    }>;
+    findJournalEntries(): Promise<({
+        company: {
+            id: string;
+            tenantId: string;
+            email: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            rnc: string;
+            tradeName: string | null;
+            address: string | null;
+            phone: string | null;
+            itbisType: string;
+            ncfSequenceType: string;
+            accountingPeriodStart: Date;
+            settings: import("@prisma/client/runtime/library").JsonValue;
+        };
+        lines: {
+            id: string;
+            createdAt: Date;
+            description: string | null;
+            journalEntryId: string;
+            lineNumber: number;
+            accountId: string;
+            debit: import("@prisma/client/runtime/library").Decimal;
+            credit: import("@prisma/client/runtime/library").Decimal;
+        }[];
+    } & {
+        number: string;
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        createdBy: string;
+        referenceType: string | null;
+        referenceId: string | null;
+        periodId: string;
+        date: Date;
+        postedAt: Date | null;
+        postedBy: string | null;
+    })[]>;
+    createJournalEntry(data: any): Promise<{
+        number: string;
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        description: string | null;
+        createdBy: string;
+        referenceType: string | null;
+        referenceId: string | null;
+        periodId: string;
+        date: Date;
+        postedAt: Date | null;
+        postedBy: string | null;
+    }>;
+    findPeriods(): Promise<{
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        name: string;
+        startDate: Date;
+        endDate: Date;
+        closedAt: Date | null;
+        closedBy: string | null;
+    }[]>;
+    createPeriod(data: any): Promise<{
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        name: string;
+        startDate: Date;
+        endDate: Date;
+        closedAt: Date | null;
+        closedBy: string | null;
+    }>;
+    closePeriod(id: string): Promise<{
+        id: string;
+        tenantId: string;
+        companyId: string;
+        status: string;
+        createdAt: Date;
+        name: string;
+        startDate: Date;
+        endDate: Date;
+        closedAt: Date | null;
+        closedBy: string | null;
+    }>;
+}

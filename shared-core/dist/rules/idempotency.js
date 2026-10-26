@@ -1,0 +1,39 @@
+"use strict";
+// Utilidades para idempotencia de operaciones
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateIdempotencyKey = generateIdempotencyKey;
+exports.validateIdempotencyKey = validateIdempotencyKey;
+exports.parseIdempotencyKey = parseIdempotencyKey;
+/**
+ * Genera una clave de idempotencia única
+ * @param entityType Tipo de entidad (invoice, payment, etc.)
+ * @param tenantId ID del tenant
+ * @param companyId ID de la empresa
+ * @param clientGeneratedId ID generado por el cliente
+ */
+function generateIdempotencyKey(entityType, tenantId, companyId, clientGeneratedId) {
+    return `${entityType}:${tenantId}:${companyId}:${clientGeneratedId}`;
+}
+/**
+ * Valida el formato de una clave de idempotencia
+ */
+function validateIdempotencyKey(key) {
+    const parts = key.split(':');
+    return parts.length === 4 && parts.every((part) => part.length > 0);
+}
+/**
+ * Extrae información de una clave de idempotencia
+ */
+function parseIdempotencyKey(key) {
+    if (!validateIdempotencyKey(key)) {
+        return null;
+    }
+    const [entityType, tenantId, companyId, clientGeneratedId] = key.split(':');
+    return {
+        entityType,
+        tenantId,
+        companyId,
+        clientGeneratedId,
+    };
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaWRlbXBvdGVuY3kuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi9zcmMvcnVsZXMvaWRlbXBvdGVuY3kudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IjtBQUFBLDhDQUE4Qzs7QUFTOUMsd0RBT0M7QUFLRCx3REFHQztBQUtELGtEQWlCQztBQTVDRDs7Ozs7O0dBTUc7QUFDSCxTQUFnQixzQkFBc0IsQ0FDcEMsVUFBa0IsRUFDbEIsUUFBZ0IsRUFDaEIsU0FBaUIsRUFDakIsaUJBQXlCO0lBRXpCLE9BQU8sR0FBRyxVQUFVLElBQUksUUFBUSxJQUFJLFNBQVMsSUFBSSxpQkFBaUIsRUFBRSxDQUFDO0FBQ3ZFLENBQUM7QUFFRDs7R0FFRztBQUNILFNBQWdCLHNCQUFzQixDQUFDLEdBQVc7SUFDaEQsTUFBTSxLQUFLLEdBQUcsR0FBRyxDQUFDLEtBQUssQ0FBQyxHQUFHLENBQUMsQ0FBQztJQUM3QixPQUFPLEtBQUssQ0FBQyxNQUFNLEtBQUssQ0FBQyxJQUFJLEtBQUssQ0FBQyxLQUFLLENBQUMsQ0FBQyxJQUFJLEVBQUUsRUFBRSxDQUFDLElBQUksQ0FBQyxNQUFNLEdBQUcsQ0FBQyxDQUFDLENBQUM7QUFDdEUsQ0FBQztBQUVEOztHQUVHO0FBQ0gsU0FBZ0IsbUJBQW1CLENBQUMsR0FBVztJQU03QyxJQUFJLENBQUMsc0JBQXNCLENBQUMsR0FBRyxDQUFDLEVBQUUsQ0FBQztRQUNqQyxPQUFPLElBQUksQ0FBQztJQUNkLENBQUM7SUFFRCxNQUFNLENBQUMsVUFBVSxFQUFFLFFBQVEsRUFBRSxTQUFTLEVBQUUsaUJBQWlCLENBQUMsR0FBRyxHQUFHLENBQUMsS0FBSyxDQUFDLEdBQUcsQ0FBQyxDQUFDO0lBQzVFLE9BQU87UUFDTCxVQUFVO1FBQ1YsUUFBUTtRQUNSLFNBQVM7UUFDVCxpQkFBaUI7S0FDbEIsQ0FBQztBQUNKLENBQUMiLCJzb3VyY2VzQ29udGVudCI6WyIvLyBVdGlsaWRhZGVzIHBhcmEgaWRlbXBvdGVuY2lhIGRlIG9wZXJhY2lvbmVzXG5cbi8qKlxuICogR2VuZXJhIHVuYSBjbGF2ZSBkZSBpZGVtcG90ZW5jaWEgw7puaWNhXG4gKiBAcGFyYW0gZW50aXR5VHlwZSBUaXBvIGRlIGVudGlkYWQgKGludm9pY2UsIHBheW1lbnQsIGV0Yy4pXG4gKiBAcGFyYW0gdGVuYW50SWQgSUQgZGVsIHRlbmFudFxuICogQHBhcmFtIGNvbXBhbnlJZCBJRCBkZSBsYSBlbXByZXNhXG4gKiBAcGFyYW0gY2xpZW50R2VuZXJhdGVkSWQgSUQgZ2VuZXJhZG8gcG9yIGVsIGNsaWVudGVcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGdlbmVyYXRlSWRlbXBvdGVuY3lLZXkoXG4gIGVudGl0eVR5cGU6IHN0cmluZyxcbiAgdGVuYW50SWQ6IHN0cmluZyxcbiAgY29tcGFueUlkOiBzdHJpbmcsXG4gIGNsaWVudEdlbmVyYXRlZElkOiBzdHJpbmcsXG4pOiBzdHJpbmcge1xuICByZXR1cm4gYCR7ZW50aXR5VHlwZX06JHt0ZW5hbnRJZH06JHtjb21wYW55SWR9OiR7Y2xpZW50R2VuZXJhdGVkSWR9YDtcbn1cblxuLyoqXG4gKiBWYWxpZGEgZWwgZm9ybWF0byBkZSB1bmEgY2xhdmUgZGUgaWRlbXBvdGVuY2lhXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiB2YWxpZGF0ZUlkZW1wb3RlbmN5S2V5KGtleTogc3RyaW5nKTogYm9vbGVhbiB7XG4gIGNvbnN0IHBhcnRzID0ga2V5LnNwbGl0KCc6Jyk7XG4gIHJldHVybiBwYXJ0cy5sZW5ndGggPT09IDQgJiYgcGFydHMuZXZlcnkoKHBhcnQpID0+IHBhcnQubGVuZ3RoID4gMCk7XG59XG5cbi8qKlxuICogRXh0cmFlIGluZm9ybWFjacOzbiBkZSB1bmEgY2xhdmUgZGUgaWRlbXBvdGVuY2lhXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBwYXJzZUlkZW1wb3RlbmN5S2V5KGtleTogc3RyaW5nKToge1xuICBlbnRpdHlUeXBlOiBzdHJpbmc7XG4gIHRlbmFudElkOiBzdHJpbmc7XG4gIGNvbXBhbnlJZDogc3RyaW5nO1xuICBjbGllbnRHZW5lcmF0ZWRJZDogc3RyaW5nO1xufSB8IG51bGwge1xuICBpZiAoIXZhbGlkYXRlSWRlbXBvdGVuY3lLZXkoa2V5KSkge1xuICAgIHJldHVybiBudWxsO1xuICB9XG5cbiAgY29uc3QgW2VudGl0eVR5cGUsIHRlbmFudElkLCBjb21wYW55SWQsIGNsaWVudEdlbmVyYXRlZElkXSA9IGtleS5zcGxpdCgnOicpO1xuICByZXR1cm4ge1xuICAgIGVudGl0eVR5cGUsXG4gICAgdGVuYW50SWQsXG4gICAgY29tcGFueUlkLFxuICAgIGNsaWVudEdlbmVyYXRlZElkLFxuICB9O1xufVxuIl19

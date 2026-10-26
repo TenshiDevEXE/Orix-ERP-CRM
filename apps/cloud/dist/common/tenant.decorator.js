@@ -1,0 +1,9 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TenantId = void 0;
+const common_1 = require("@nestjs/common");
+exports.TenantId = (0, common_1.createParamDecorator)((_data, ctx) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.tenantId;
+});
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoidGVuYW50LmRlY29yYXRvci5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9jb21tb24vdGVuYW50LmRlY29yYXRvci50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiOzs7QUFBQSwyQ0FBd0U7QUFFM0QsUUFBQSxRQUFRLEdBQUcsSUFBQSw2QkFBb0IsRUFDMUMsQ0FBQyxLQUFjLEVBQUUsR0FBcUIsRUFBVSxFQUFFO0lBQ2hELE1BQU0sT0FBTyxHQUFHLEdBQUcsQ0FBQyxZQUFZLEVBQUUsQ0FBQyxVQUFVLEVBQUUsQ0FBQztJQUNoRCxPQUFPLE9BQU8sQ0FBQyxRQUFRLENBQUM7QUFDMUIsQ0FBQyxDQUNGLENBQUMiLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBjcmVhdGVQYXJhbURlY29yYXRvciwgRXhlY3V0aW9uQ29udGV4dCB9IGZyb20gJ0BuZXN0anMvY29tbW9uJztcblxuZXhwb3J0IGNvbnN0IFRlbmFudElkID0gY3JlYXRlUGFyYW1EZWNvcmF0b3IoXG4gIChfZGF0YTogdW5rbm93biwgY3R4OiBFeGVjdXRpb25Db250ZXh0KTogc3RyaW5nID0+IHtcbiAgICBjb25zdCByZXF1ZXN0ID0gY3R4LnN3aXRjaFRvSHR0cCgpLmdldFJlcXVlc3QoKTtcbiAgICByZXR1cm4gcmVxdWVzdC50ZW5hbnRJZDtcbiAgfSxcbik7XG4iXX0=

@@ -1,0 +1,468 @@
+// Prisma Schema para ERP Híbrido RD
+// Este esquema se usa para generar el cliente Prisma y las migraciones
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// TENANTS Y EMPRESAS
+// ============================================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  subdomain String   @unique
+  plan      String
+  status    String   @default("active")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  companies Company[]
+  users     User[]
+  roles     Role[]
+  taxes     Tax[]
+  categories Category[]
+  products   Product[]
+  accounts   Account[]
+  accountingPeriods AccountingPeriod[]
+  journalEntries    JournalEntry[]
+  invoices          Invoice[]
+  ncfSequences      NcfSequence[]
+  inventoryMovements InventoryMovement[]
+  inventoryBalances  InventoryBalance[]
+  syncQueue         SyncQueue[]
+  auditLog          AuditLog[]
+
+  @@map("tenants")
+}
+
+model Company {
+  id            String   @id @default(uuid())
+  tenantId      String
+  rnc           String
+  name          String
+  tradeName     String?
+  address       String?
+  phone         String?
+  email         String?
+  itbisType     String
+  ncfSequenceType String
+  accountingPeriodStart DateTime
+  settings      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users         User[]
+  categories    Category[]
+  products      Product[]
+  accounts      Account[]
+  accountingPeriods AccountingPeriod[]
+  journalEntries    JournalEntry[]
+  invoices          Invoice[]
+  ncfSequences      NcfSequence[]
+  inventoryMovements InventoryMovement[]
+  inventoryBalances  InventoryBalance[]
+  syncQueue         SyncQueue[]
+
+  @@unique([tenantId, rnc])
+  @@map("companies")
+}
+
+// ============================================
+// IDENTIDAD Y ACCESO
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  companyId    String?
+  email        String
+  passwordHash String
+  firstName    String
+  lastName     String?
+  status       String    @default("active")
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  userRoles    UserRole[]
+  journalEntries JournalEntry[] @relation("CreatedBy")
+  inventoryMovements InventoryMovement[] @relation("CreatedBy")
+  auditLog     AuditLog[] @relation("ChangedBy")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  permissions Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles   UserRole[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model UserRole {
+  id         String   @id @default(uuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ============================================
+// CATÁLOGO DE PRODUCTOS
+// ============================================
+
+model Category {
+  id          String     @id @default(uuid())
+  tenantId    String
+  companyId   String?
+  parentId    String?
+  name        String
+  code        String?
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company     Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  tenantId     String
+  companyId    String?
+  categoryId   String?
+  sku          String
+  name         String
+  description  String?
+  unit         String
+  cost         Decimal  @default(0) @db.Decimal(15, 2)
+  price        Decimal  @default(0) @db.Decimal(15, 2)
+  itbisTaxId   String?
+  itbisIncluded Boolean @default(true)
+  isService    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  itbisTax     Tax?      @relation("ProductTax", fields: [itbisTaxId], references: [id])
+  inventoryMovements InventoryMovement[]
+
+  @@unique([tenantId, companyId, sku])
+  @@map("products")
+}
+
+// ============================================
+// IMPUESTOS (ITBIS)
+// ============================================
+
+model Tax {
+  id        String   @id @default(uuid())
+  tenantId  String
+  code      String
+  name      String
+  rate      Decimal  @db.Decimal(5, 4)
+  type      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products  Product[] @relation("ProductTax")
+
+  @@unique([tenantId, code])
+  @@map("taxes")
+}
+
+// ============================================
+// CONTABILIDAD (PARTIDA DOBLE)
+// ============================================
+
+model Account {
+  id          String   @id @default(uuid())
+  tenantId    String
+  companyId   String?
+  code        String
+  name        String
+  type        String
+  subtype     String?
+  parentId    String?
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent      Account?  @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Account[] @relation("AccountHierarchy")
+  journalEntryLines JournalEntryLine[]
+
+  @@unique([tenantId, companyId, code])
+  @@map("accounts")
+}
+
+model AccountingPeriod {
+  id          String   @id @default(uuid())
+  tenantId    String
+  companyId   String
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("open")
+  closedAt    DateTime?
+  closedBy    String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  journalEntries JournalEntry[]
+
+  @@unique([tenantId, companyId, startDate])
+  @@map("accounting_periods")
+}
+
+model JournalEntry {
+  id            String   @id @default(uuid())
+  tenantId      String
+  companyId     String
+  periodId      String
+  number        String
+  date          DateTime
+  description   String?
+  referenceType String?
+  referenceId   String?
+  status        String   @default("draft")
+  postedAt      DateTime?
+  postedBy      String?
+  createdAt     DateTime @default(now())
+  createdBy     String
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period        AccountingPeriod    @relation(fields: [periodId], references: [id])
+  creator       User                @relation("CreatedBy", fields: [createdBy], references: [id])
+  poster        User?               @relation("PostedBy", fields: [postedBy], references: [id])
+  lines         JournalEntryLine[]
+  invoices      Invoice[]
+
+  @@unique([tenantId, companyId, number])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id            String   @id @default(uuid())
+  journalEntryId String
+  accountId     String
+  debit         Decimal  @default(0) @db.Decimal(15, 2)
+  credit        Decimal  @default(0) @db.Decimal(15, 2)
+  description   String?
+  lineNumber    Int
+  createdAt     DateTime @default(now())
+
+  journalEntry  JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account       Account      @relation(fields: [accountId], references: [id])
+
+  @@map("journal_entry_lines")
+}
+
+// ============================================
+// FACTURACIÓN (NCF)
+// ============================================
+
+model NcfSequence {
+  id           String   @id @default(uuid())
+  tenantId     String
+  companyId    String
+  type         String
+  prefix       String
+  currentSequence BigInt @default(1)
+  validFrom    DateTime
+  validUntil   DateTime
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, companyId, type, validFrom])
+  @@map("ncf_sequences")
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  tenantId       String
+  companyId      String
+  customerId     String
+  invoiceNumber  String
+  ncf            String
+  ncfType        String
+  invoiceDate    DateTime
+  dueDate        DateTime?
+  subtotal       Decimal  @default(0) @db.Decimal(15, 2)
+  itbisAmount    Decimal  @default(0) @db.Decimal(15, 2)
+  total          Decimal  @default(0) @db.Decimal(15, 2)
+  status         String   @default("draft")
+  journalEntryId String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+  createdBy      String
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  lines          InvoiceLine[]
+
+  @@unique([tenantId, companyId, ncf])
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  productId   String?
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(15, 2)
+  discount    Decimal  @default(0) @db.Decimal(15, 2)
+  itbisRate   Decimal  @db.Decimal(5, 4)
+  itbisAmount Decimal  @default(0) @db.Decimal(15, 2)
+  lineTotal   Decimal  @db.Decimal(15, 2)
+  lineNumber  Int
+  createdAt   DateTime @default(now())
+
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_lines")
+}
+
+// ============================================
+// INVENTARIO
+// ============================================
+
+model InventoryMovement {
+  id            String   @id @default(uuid())
+  tenantId      String
+  companyId     String
+  productId     String
+  movementType  String
+  referenceType String?
+  referenceId   String?
+  quantity      Decimal  @db.Decimal(10, 2)
+  unitCost      Decimal  @db.Decimal(15, 2)
+  totalCost     Decimal  @db.Decimal(15, 2)
+  locationId    String?
+  occurredAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+  createdBy     String
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id])
+  creator       User     @relation("CreatedBy", fields: [createdBy], references: [id])
+
+  @@map("inventory_movements")
+}
+
+model InventoryBalance {
+  id             String   @id @default(uuid())
+  tenantId       String
+  companyId      String
+  productId      String
+  locationId     String?
+  quantityOnHand Decimal  @default(0) @db.Decimal(10, 2)
+  totalCost      Decimal  @default(0) @db.Decimal(15, 2)
+  lastMovementAt DateTime?
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, companyId, productId, locationId])
+  @@map("inventory_balances")
+}
+
+// ============================================
+// SINCRONIZACIÓN
+// ============================================
+
+model SyncQueue {
+  id            String   @id @default(uuid())
+  tenantId      String
+  companyId     String
+  eventType     String
+  entityType    String
+  entityId      String
+  payload       Json
+  status        String   @default("pending")
+  attempts      Int      @default(0)
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime?
+  errorMessage  String?
+  confirmedAt   DateTime?
+  createdAt     DateTime @default(now())
+  processedAt   DateTime?
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("sync_queue")
+}
+
+// ============================================
+// AUDITORÍA
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tableName  String
+  recordId   String
+  action     String
+  oldValues  Json?
+  newValues  Json?
+  changedBy  String
+  changedAt  DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  tenant     User     @relation("ChangedBy", fields: [changedBy], references: [id])
+
+  @@map("audit_log")
+}
