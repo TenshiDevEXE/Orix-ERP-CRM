@@ -28,6 +28,7 @@ export interface User {
   id: string;
   companyId: string;
   username: string;
+  password?: string;
   name: string;
   role: 'ADMIN' | 'CASHIER' | 'ACCOUNTANT' | 'INVENTORY_MANAGER' | 'CUSTOM';
   allowedModules: ModuleKey[];

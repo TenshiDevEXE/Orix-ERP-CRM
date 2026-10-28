@@ -16,7 +16,7 @@ export class ErpDatabase extends Dexie {
 
   constructor() {
     super('AgyErpDb');
-    this.version(2).stores({
+    this.version(3).stores({
       companies: 'id, rnc, name',
       users: 'id, companyId, username, role',
       products: 'id, companyId, code, barcode, category, name',
@@ -58,12 +58,13 @@ export async function initMultiTenantData() {
       }
     ]);
 
-    // Usuarios para la Empresa 1
+    // Usuarios para Empresa 1 con contraseñas por defecto
     await db.users.bulkAdd([
       {
         id: 'usr-admin-1',
         companyId: defaultCompanyId,
         username: 'admin',
+        password: '123',
         name: 'Carlos Mendoza (Gerente Admin)',
         role: 'ADMIN',
         allowedModules: ['pos', 'inventory', 'crm', 'accounting', 'users', 'settings'],
@@ -74,6 +75,7 @@ export async function initMultiTenantData() {
         id: 'usr-caja-1',
         companyId: defaultCompanyId,
         username: 'cajera1',
+        password: '123',
         name: 'Laura Gómez (Cajera)',
         role: 'CASHIER',
         allowedModules: ['pos'], // Solo POS
@@ -84,6 +86,7 @@ export async function initMultiTenantData() {
         id: 'usr-inv-1',
         companyId: defaultCompanyId,
         username: 'almacen1',
+        password: '123',
         name: 'Marcos Peralta (Encargado Almacén)',
         role: 'INVENTORY_MANAGER',
         allowedModules: ['inventory'], // Solo inventario
@@ -94,22 +97,35 @@ export async function initMultiTenantData() {
         id: 'usr-conta-1',
         companyId: defaultCompanyId,
         username: 'contador1',
+        password: '123',
         name: 'Lic. Roberto Peña (Contador)',
         role: 'ACCOUNTANT',
         allowedModules: ['accounting', 'crm'], // Contabilidad y CRM
         active: true,
         avatar: '📊'
       },
-      // Usuario de Empresa 2
+      // Usuarios para Empresa 2
       {
         id: 'usr-admin-2',
         companyId: altCompanyId,
         username: 'admin_sol',
-        name: 'Dra. Altagracia Reyes',
+        password: '123',
+        name: 'Dra. Altagracia Reyes (Administradora)',
         role: 'ADMIN',
         allowedModules: ['pos', 'inventory', 'crm', 'accounting', 'users', 'settings'],
         active: true,
         avatar: '👩‍⚕️'
+      },
+      {
+        id: 'usr-farmacia-1',
+        companyId: altCompanyId,
+        username: 'despacho1',
+        password: '123',
+        name: 'Pedro Santana (Despacho Farmacia)',
+        role: 'CASHIER',
+        allowedModules: ['pos', 'inventory'],
+        active: true,
+        avatar: '👨‍⚕️'
       }
     ]);
 
@@ -168,13 +184,13 @@ export async function initMultiTenantData() {
         cost: 110,
         stock: 120,
         minStock: 25,
-        taxRate: 0, // Medicamentos exentos en RD
+        taxRate: 0,
         unit: 'CAJA',
         barcode: '746200020001'
       }
     ]);
 
-    // Clientes
+    // Clientes Empresa 1
     await db.customers.bulkAdd([
       {
         id: 'c1',
@@ -196,6 +212,19 @@ export async function initMultiTenantData() {
         address: 'Av. Abraham Lincoln #402',
         creditLimit: 150000,
         currentBalance: 14500,
+        ncfPreference: 'B01'
+      },
+      // Clientes Empresa 2
+      {
+        id: 'c3',
+        companyId: altCompanyId,
+        name: 'Clínica San Rafael',
+        rncOrCedula: '102-44589-2',
+        phone: '809-583-9999',
+        email: 'compras@clinicasanrafael.do',
+        address: 'Calle Las Carreras #12, Santiago',
+        creditLimit: 200000,
+        currentBalance: 35000,
         ncfPreference: 'B01'
       }
     ]);

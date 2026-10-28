@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { 
   ShoppingCart, Package, BookOpen, Users, 
-  Wifi, Sliders, ShieldCheck, Battery, Sparkles,
-  Building2, ChevronDown, Lock
+  Wifi, Sliders, ShieldCheck, Battery,
+  Building2, ChevronDown, Lock, LogOut
 } from 'lucide-react';
 import { PosTerminal } from './components/PosTerminal';
 import { InventoryManager } from './components/InventoryManager';
 import { AccountingViewer } from './components/AccountingViewer';
 import { CrmManager } from './components/CrmManager';
 import { UsersManager } from './components/UsersManager';
-import { CompanySelectorModal } from './components/CompanySelector';
+import { LoginScreen } from './components/LoginScreen';
 import { initMultiTenantData, db } from './db';
 import type { Company, User, ModuleKey } from './types';
 import { formatCurrencyRD } from './utils/fiscal';
@@ -17,19 +17,22 @@ import { formatCurrencyRD } from './utils/fiscal';
 export function App() {
   const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [companyUsers, setCompanyUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<ModuleKey>('pos');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [totalSales, setTotalSales] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
-
-  const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   useEffect(() => {
-    initMultiTenantData().then(() => {
-      loadInitialContext();
-    });
+    initMultiTenantData();
+
+    // Comprobar si hay sesión previa en localStorage
+    const savedUserId = localStorage.getItem('orix_user_id');
+    const savedCompanyId = localStorage.getItem('orix_company_id');
+
+    if (savedUserId && savedCompanyId) {
+      restoreSession(savedUserId, savedCompanyId);
+    }
 
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     const handleOnline = () => setIsOnline(true);
@@ -45,34 +48,18 @@ export function App() {
     };
   }, []);
 
-  async function loadInitialContext() {
-    const comps = await db.companies.toArray();
-    if (comps.length > 0) {
-      const selectedComp = comps[0];
-      setCurrentCompany(selectedComp);
-      await loadUsersForCompany(selectedComp.id);
-    }
-  }
-
-  async function loadUsersForCompany(companyId: string) {
-    const users = await db.users.where('companyId').equals(companyId).toArray();
-    setCompanyUsers(users);
-    if (users.length > 0) {
-      // Por defecto entra como el Admin de la empresa
-      const admin = users.find(u => u.role === 'ADMIN') || users[0];
-      switchUser(admin);
-    }
-    refreshStats(companyId);
-  }
-
-  function switchUser(user: User) {
-    setCurrentUser(user);
-    setShowUserDropdown(false);
-    // Si la pestaña actual no está permitida para este usuario, cámbialo a la primera que tenga
-    if (!user.allowedModules.includes(activeTab)) {
+  async function restoreSession(userId: string, companyId: string) {
+    const comp = await db.companies.get(companyId);
+    const user = await db.users.get(userId);
+    if (comp && user && user.active && user.companyId === comp.id) {
+      setCurrentCompany(comp);
+      setCurrentUser(user);
       if (user.allowedModules.length > 0) {
         setActiveTab(user.allowedModules[0]);
       }
+      refreshStats(comp.id);
+    } else {
+      handleLogout();
     }
   }
 
@@ -84,23 +71,33 @@ export function App() {
     setTotalSales(sum);
   }
 
-  const handleSelectCompany = (comp: Company) => {
-    setCurrentCompany(comp);
-    loadUsersForCompany(comp.id);
+  const handleLoginSuccess = (user: User, company: Company) => {
+    setCurrentCompany(company);
+    setCurrentUser(user);
+    localStorage.setItem('orix_user_id', user.id);
+    localStorage.setItem('orix_company_id', company.id);
+
+    // Ajustar tab a su primer módulo autorizado
+    if (user.allowedModules.length > 0) {
+      setActiveTab(user.allowedModules[0]);
+    }
+    refreshStats(company.id);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('orix_user_id');
+    localStorage.removeItem('orix_company_id');
+    setCurrentUser(null);
+    setCurrentCompany(null);
+    setShowUserDropdown(false);
   };
 
   const timeFormatted = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateFormatted = currentTime.toLocaleDateString('es-DO', { weekday: 'short', month: 'short', day: 'numeric' });
 
-  if (!currentCompany || !currentUser) {
-    return (
-      <div className="h-screen flex items-center justify-center text-white bg-slate-950 font-sans">
-        <div className="flex items-center gap-3 animate-pulse">
-          <Sparkles className="h-6 w-6 text-sky-400" />
-          <span>Cargando entorno empresarial multi-tenant...</span>
-        </div>
-      </div>
-    );
+  // Si no ha iniciado sesión, mostrar pantalla de Login aislada
+  if (!currentUser || !currentCompany) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
   const hasAccess = (mod: ModuleKey) => currentUser.allowedModules.includes(mod);
@@ -110,19 +107,16 @@ export function App() {
       {/* 1. Barra de Menú Superior Estilo macOS */}
       <header className="h-8 bg-black/40 backdrop-blur-2xl border-b border-white/10 px-4 flex items-center justify-between text-[11px] font-medium text-white/90 z-50">
         <div className="flex items-center gap-4">
-          <span className="font-bold tracking-tight text-white flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition">
-            <span className="text-sm"></span> ERP RD
+          <span className="font-bold tracking-tight text-white flex items-center gap-1.5">
+            <span className="text-sm"></span> Orix ERP/CRM
           </span>
 
-          {/* Selector de Empresa Activa */}
-          <button
-            onClick={() => setShowCompanyModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white transition font-medium"
-          >
+          {/* Información fija de su empresa (Aislamiento Total: no puede ver otras empresas) */}
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-white/10 border border-white/15 text-white font-medium">
             <Building2 className="h-3 w-3 text-sky-400" />
-            <span>{currentCompany.name}</span>
-            <ChevronDown className="h-3 w-3 opacity-60" />
-          </button>
+            <span className="font-bold">{currentCompany.name}</span>
+            <span className="text-[10px] text-white/50 font-mono">({currentCompany.rnc})</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3.5 text-white/80">
@@ -136,7 +130,7 @@ export function App() {
           <Sliders className="h-3.5 w-3.5" />
           <span className="text-white font-medium">{dateFormatted} {timeFormatted}</span>
 
-          {/* Menú de Usuario Actual */}
+          {/* Menú de Usuario Actual con Opción de Cerrar Sesión */}
           <div className="relative">
             <button
               onClick={() => setShowUserDropdown(!showUserDropdown)}
@@ -144,38 +138,32 @@ export function App() {
             >
               <span className="text-base">{currentUser.avatar || '👤'}</span>
               <span className="font-semibold text-white">{currentUser.name.split(' ')[0]}</span>
-              <span className="text-[9px] font-mono bg-sky-500/20 text-sky-300 px-1 rounded">
+              <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
+                currentUser.role === 'ADMIN'
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                  : 'bg-sky-500/20 text-sky-300 border-sky-400/30'
+              }`}>
                 {currentUser.role}
               </span>
               <ChevronDown className="h-3 w-3 opacity-60" />
             </button>
 
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-3xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-60 bg-slate-900/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-3xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div className="p-2.5 border-b border-white/10">
                   <p className="font-bold text-xs text-white">{currentUser.name}</p>
-                  <p className="text-[10px] text-white/50 font-mono">@{currentUser.username} • {currentCompany.name}</p>
+                  <p className="text-[10px] text-white/50 font-mono">@{currentUser.username}</p>
+                  <p className="text-[10px] text-sky-400 font-medium mt-1 truncate">{currentCompany.name}</p>
                 </div>
 
-                <div className="py-1">
-                  <p className="text-[10px] uppercase font-bold text-white/40 px-2 py-1">Cambiar Usuario de esta Empresa:</p>
-                  {companyUsers.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => switchUser(u)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition ${
-                        u.id === currentUser.id 
-                          ? 'bg-sky-500/20 text-white font-semibold' 
-                          : 'text-white/70 hover:bg-white/10 hover:text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{u.avatar || '👤'}</span>
-                        <span className="truncate">{u.name}</span>
-                      </div>
-                      <span className="text-[9px] font-mono opacity-60">{u.role}</span>
-                    </button>
-                  ))}
+                <div className="p-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-2.5 py-2 rounded-xl text-xs flex items-center gap-2 text-rose-400 hover:bg-rose-500/10 transition font-medium"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Cerrar Sesión</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -183,7 +171,7 @@ export function App() {
         </div>
       </header>
 
-      {/* 2. Área de Trabajo con Ventana Estilo macOS */}
+      {/* 2. Ventana de Trabajo Estilo macOS */}
       <div className="flex-1 p-4 md:p-6 flex items-center justify-center overflow-hidden pb-24">
         <div className="w-full max-w-[1560px] h-full mac-window-dark rounded-3xl flex overflow-hidden shadow-2xl relative border border-white/15">
           {/* Barra Lateral Izquierda */}
@@ -199,7 +187,7 @@ export function App() {
                 </span>
               </div>
 
-              {/* Módulos Disponibles con Validación de Permisos */}
+              {/* Módulos Disponibles con Validación Estricta de Permisos */}
               <div className="space-y-4">
                 <div>
                   <span className="text-[10px] font-bold text-white/40 tracking-wider uppercase px-2.5">Módulos Asignados</span>
@@ -218,7 +206,7 @@ export function App() {
                         <span>Punto de Venta / NCF</span>
                       </button>
                     ) : (
-                      <div className="flex items-center justify-between px-3 py-2 text-white/25 text-xs">
+                      <div className="flex items-center justify-between px-3 py-2 text-white/20 text-xs">
                         <span className="flex items-center gap-2.5 line-through">
                           <ShoppingCart className="h-4 w-4 opacity-30" />
                           <span>Punto de Venta</span>
@@ -241,7 +229,7 @@ export function App() {
                         <span>Catálogo & Stock</span>
                       </button>
                     ) : (
-                      <div className="flex items-center justify-between px-3 py-2 text-white/25 text-xs">
+                      <div className="flex items-center justify-between px-3 py-2 text-white/20 text-xs">
                         <span className="flex items-center gap-2.5 line-through">
                           <Package className="h-4 w-4 opacity-30" />
                           <span>Catálogo & Stock</span>
@@ -264,7 +252,7 @@ export function App() {
                         <span>Clientes & CRM</span>
                       </button>
                     ) : (
-                      <div className="flex items-center justify-between px-3 py-2 text-white/25 text-xs">
+                      <div className="flex items-center justify-between px-3 py-2 text-white/20 text-xs">
                         <span className="flex items-center gap-2.5 line-through">
                           <Users className="h-4 w-4 opacity-30" />
                           <span>Clientes & CRM</span>
@@ -287,7 +275,7 @@ export function App() {
                         <span>Contabilidad Diario</span>
                       </button>
                     ) : (
-                      <div className="flex items-center justify-between px-3 py-2 text-white/25 text-xs">
+                      <div className="flex items-center justify-between px-3 py-2 text-white/20 text-xs">
                         <span className="flex items-center gap-2.5 line-through">
                           <BookOpen className="h-4 w-4 opacity-30" />
                           <span>Contabilidad Diario</span>
@@ -296,7 +284,7 @@ export function App() {
                       </div>
                     )}
 
-                    {/* Gestión de Usuarios (Solo Admin o con permiso 'users') */}
+                    {/* Módulo de Administración de Usuarios (Solo Administrador de la Empresa) */}
                     {hasAccess('users') && (
                       <button
                         onClick={() => { setActiveTab('users'); refreshStats(); }}
@@ -307,23 +295,23 @@ export function App() {
                         }`}
                       >
                         <ShieldCheck className="h-4 w-4 text-sky-400" />
-                        <span>Gestión de Usuarios</span>
+                        <span>Usuarios & Permisos</span>
                       </button>
                     )}
                   </nav>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-white/40 tracking-wider uppercase px-2.5">Empresa Activa</span>
+                  <span className="text-[10px] font-bold text-white/40 tracking-wider uppercase px-2.5">Tu Sesión</span>
                   <div className="mt-2 space-y-1.5 px-2 text-[11px] text-white/60">
-                    <p className="font-semibold text-white line-clamp-1">{currentCompany.name}</p>
+                    <p className="font-semibold text-white line-clamp-1">{currentUser.name}</p>
                     <div className="flex justify-between py-1 border-b border-white/5 font-mono">
-                      <span>RNC:</span>
-                      <strong className="text-sky-300">{currentCompany.rnc}</strong>
+                      <span>Rol:</span>
+                      <strong className="text-sky-300">{currentUser.role}</strong>
                     </div>
                     <div className="flex justify-between py-1">
-                      <span>Rol Activo:</span>
-                      <strong className="text-emerald-400 font-mono">{currentUser.role}</strong>
+                      <span>RNC Empresa:</span>
+                      <strong className="text-emerald-400 font-mono">{currentCompany.rnc}</strong>
                     </div>
                   </div>
                 </div>
@@ -333,9 +321,11 @@ export function App() {
             {/* Pie del Sidebar */}
             <div className="pt-3 border-t border-white/10 text-[10px] text-white/40 flex items-center justify-between">
               <span className="flex items-center gap-1 text-emerald-400">
-                <ShieldCheck className="h-3 w-3" /> Multi-Empresa RD
+                <ShieldCheck className="h-3 w-3" /> DGII Compliant
               </span>
-              <span>macOS Edition</span>
+              <button onClick={handleLogout} className="text-rose-400 hover:underline">
+                Salir
+              </button>
             </div>
           </aside>
 
@@ -354,17 +344,13 @@ export function App() {
               </div>
 
               <div className="flex items-center gap-3 text-xs">
-                <button
-                  onClick={() => setShowCompanyModal(true)}
-                  className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white font-mono text-[11px] transition flex items-center gap-1.5"
-                >
-                  <Building2 className="h-3.5 w-3.5 text-sky-400" />
-                  Cambiar Empresa
-                </button>
+                <span className="px-2.5 py-1 rounded-xl bg-white/10 border border-white/15 text-white font-mono text-[11px]">
+                  {currentCompany.name}
+                </span>
               </div>
             </div>
 
-            {/* Renderizado del Módulo si el Usuario tiene Permiso */}
+            {/* Renderizado Seguro según Permisos */}
             <div className="flex-1 overflow-y-auto p-5">
               {hasAccess(activeTab) ? (
                 <>
@@ -376,7 +362,6 @@ export function App() {
                     <UsersManager 
                       currentCompany={currentCompany} 
                       currentUser={currentUser}
-                      onUserUpdated={() => loadUsersForCompany(currentCompany.id)}
                     />
                   )}
                 </>
@@ -385,9 +370,9 @@ export function App() {
                   <div className="w-16 h-16 rounded-3xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-xl">
                     <Lock className="h-8 w-8" />
                   </div>
-                  <h3 className="text-lg font-bold text-white">Acceso Denegado</h3>
+                  <h3 className="text-lg font-bold text-white">Módulo No Autorizado</h3>
                   <p className="text-xs text-white/50 max-w-sm">
-                    El usuario <strong>{currentUser.name}</strong> no tiene permisos otorgados por el administrador para acceder al módulo de <strong>{activeTab.toUpperCase()}</strong>.
+                    El usuario <strong>{currentUser.name}</strong> no tiene permisos otorgados por el administrador de <strong>{currentCompany.name}</strong> para acceder a este módulo.
                   </p>
                 </div>
               )}
@@ -396,7 +381,7 @@ export function App() {
         </div>
       </div>
 
-      {/* 3. Dock Inferior Flotante Estilo macOS */}
+      {/* 3. Dock Inferior Flotante (Solo muestra los módulos que el usuario tiene activados) */}
       <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-50">
         <div className="mac-dock px-4 py-2.5 rounded-3xl flex items-center gap-3 shadow-2xl backdrop-blur-3xl border border-white/25">
           {hasAccess('pos') && (
@@ -467,22 +452,14 @@ export function App() {
           <div className="w-[1px] h-6 bg-white/20 mx-1" />
 
           <button
-            onClick={() => setShowCompanyModal(true)}
-            title="Cambiar Empresa"
-            className="p-2.5 rounded-2xl hover:bg-white/15 transition-all duration-300 transform hover:scale-125 hover:-translate-y-2 text-white/70 hover:text-white"
+            onClick={handleLogout}
+            title="Cerrar Sesión"
+            className="p-2.5 rounded-2xl hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 transition-all duration-300 transform hover:scale-125 hover:-translate-y-2"
           >
-            <Building2 className="h-6 w-6 text-indigo-300" />
+            <LogOut className="h-6 w-6" />
           </button>
         </div>
       </div>
-
-      {/* Modal Multi-Empresas */}
-      <CompanySelectorModal
-        isOpen={showCompanyModal}
-        onClose={() => setShowCompanyModal(false)}
-        currentCompany={currentCompany}
-        onSelectCompany={handleSelectCompany}
-      />
     </div>
   );
 }
